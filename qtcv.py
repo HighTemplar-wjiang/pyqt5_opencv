@@ -9,9 +9,9 @@ import sys
 import datetime
 import cv2
 import numpy as np
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, QEvent, Qt
 from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtWidgets import QFileDialog, QApplication, QMainWindow
+from PyQt5.QtWidgets import QFileDialog, QApplication, QMainWindow, QInputDialog
 
 # local import
 import qtcvui
@@ -42,7 +42,16 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
         self.trackWindow = None
         self.timestamps = []
         self.trackPoints = []
+        self.movePoints = []  # movement in real world
         self.mouseOffset = (0, 0)
+
+        # calibration
+        self.isCalibrating = False
+        self.isCalibrated = False
+        self.calStart = (0, 0)
+        self.calEnd = (0, 0)
+        self.referLen = 0
+        self.unitPerPixel = 0
 
         # streaming parameters
         self.fps = 30
@@ -54,6 +63,7 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
         self.buttonLoad.clicked.connect(self.load_file)
         self.buttonStart.clicked.connect(self.start_video)
         self.buttonPause.clicked.connect(self.pause_video)
+        self.buttonCal.clicked.connect(self.calibrate)
 
     def closeEvent(self, QCloseEvent):
         self._log_tracking()
@@ -61,27 +71,64 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
 
     def mousePressEvent(self, QMouseEvent):
         x, y = QMouseEvent.pos().x(), QMouseEvent.pos().y()
-        self.dragStart = (x, y)
-        self.trackWindow = None
+
+        if self.isCalibrating:
+            self.calStart = (int(x), int(y))
+        else:
+            self.dragStart = (x, y)
+            self.trackWindow = None
 
     def mouseMoveEvent(self, QMouseEvent):
         x, y = QMouseEvent.pos().x(), QMouseEvent.pos().y()
 
-        if self.dragStart:
-            xmin = min(x, self.dragStart[0])
-            ymin = min(y, self.dragStart[1])
-            xmax = max(x, self.dragStart[0])
-            ymax = max(y, self.dragStart[1])
-            self.selection = (xmin, ymin, xmax, ymax)
+        if self.isCalibrating:
 
-            frame = self.frame.copy()
-            cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 255, 0))
-            self._draw_frame(frame)
+            self.calEnd = (int(x), int(y))
+            vis = self.frame.copy()
+            cv2.circle(vis, self.calStart, 2, (0, 255, 0), -1)
+            cv2.circle(vis, self.calEnd, 2, (0, 255, 0), -1)
+            cv2.polylines(vis, [np.array([self.calStart, self.calEnd])], False, (0, 255, 0))
+            self._draw_frame(vis)
+
+        else:
+
+            if self.dragStart:
+                xmin = min(x, self.dragStart[0])
+                ymin = min(y, self.dragStart[1])
+                xmax = max(x, self.dragStart[0])
+                ymax = max(y, self.dragStart[1])
+                self.selection = (xmin, ymin, xmax, ymax)
+
+                frame = self.frame.copy()
+                cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 255, 0))
+                self._draw_frame(frame)
 
     def mouseReleaseEvent(self, QMouseEvent):
-        xmin, ymin, xmax, ymax = self.selection
-        self.dragStart = None
-        self.trackWindow = (xmin, ymin, xmax - xmin, ymax - ymin)
+        x, y = QMouseEvent.pos().x(), QMouseEvent.pos().y()
+
+        if self.isCalibrating:
+            self.calEnd = (int(x), int(y))
+            referLen, ok = QInputDialog.getDouble(self, 'Input reference', 'Length (cm)')
+            if ok and referLen:
+                self.referLen = referLen
+                self.unitPerPixel = referLen / float(np.hypot(self.calEnd[0] - self.calStart[0],
+                                                              self.calEnd[1] - self.calStart[1]))
+                self.isCalibrating = False
+                self.isCalibrated = True
+        else:
+            xmin, ymin, xmax, ymax = self.selection
+            self.dragStart = None
+            self.trackWindow = (xmin, ymin, xmax - xmin, ymax - ymin)
+
+    def calibrate(self):
+        self.pause_video()
+        self.isCalibrating = True
+
+    def _pixel2unit(self, pixels):
+        if self.isCalibrated:
+            return pixels * self.unitPerPixel
+        else:
+            print('Error: Must calibrate before measuring')
 
     def _show_hist(self):
         bin_count = self.hist.shape[0]
@@ -102,11 +149,25 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
             if not os.path.exists('./data'):
                 os.makedirs('./data')
 
+            # log raw data
             if self.isVideoFileLoaded:
-                logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%m%S") + "_video.csv"
+                logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%m%S") + "_video_raw.csv"
+            else:
+                logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%m%S") + "_raw.csv"
             with open(logName, 'w+') as f:
                 for time, item in zip(self.timestamps, self.trackPoints):
                     f.write(str(time) + ',' + str(int(item[0])) + ',' + str(int(item[1])) + '\n')
+
+            # log movement data
+            if len(self.movePoints) > 0:
+                if self.isVideoFileLoaded:
+                    logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%m%S") + "_video_move.csv"
+                else:
+                    logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%m%S") + "_move.csv"
+                with open(logName, 'w+') as f:
+                    for time, item in zip(self.timestamps, self.movePoints):
+                        f.write(str(time) + ',' + str(item[0]) + ',' + str(item[1]) + '\n')
+
         except Exception as e:
             print(str(e))
 
@@ -145,6 +206,14 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
                 if (point_track != (0, 0)) and isinstance(point_track, tuple) and (point_track not in self.trackPoints):
                     self.timestamps.append(self.capture.get(0))  # get timestamp
                     self.trackPoints.append(point_track)
+
+                    if self.isCalibrated:
+                        point_move = (point_track[0] - self.trackPoints[0][0], point_track[1] - self.trackPoints[0][1])
+                        point_move = tuple(map(self._pixel2unit, point_move))
+                        self.movePoints.append(point_move)
+                        self.labelPos.setText("<font color='red'>({:.1f}ms: {:.4f}cm, {:.4f}cm)</font>".format(
+                            self.timestamps[-1], point_move[0], point_move[1]))
+
                 cv2.circle(vis, (int(point_track[0]), int(point_track[1])), 2, (0, 255, 0), -1)
                 cv2.polylines(vis, [np.array([np.int32(list(tr)) for tr in self.trackPoints])], False, (0, 255, 0))
 

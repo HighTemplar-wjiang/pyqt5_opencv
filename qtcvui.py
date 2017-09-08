@@ -45,6 +45,13 @@ class Ui_MainWindow(object):
         self.labelTrack.setFont(font)
         self.labelTrack.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.labelTrack.setObjectName("labelTrack")
+        self.buttonCal = QtWidgets.QPushButton(self.centralwidget)
+        self.buttonCal.setGeometry(QtCore.QRect(800, 680, 100, 27))
+        self.buttonCal.setObjectName("buttonCal")
+        self.labelPos = QtWidgets.QLabel(self.centralwidget)
+        self.labelPos.setGeometry(QtCore.QRect(630, 60, 531, 19))
+        self.labelPos.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.labelPos.setObjectName("labelPos")
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
@@ -59,4 +66,6 @@ class Ui_MainWindow(object):
         self.buttonCamera.setText(_translate("MainWindow", "Camera"))
         self.videoWidget.setText(_translate("MainWindow", "<br><br><br><br><br><br><br><br><br><br><br>Start camera or select a video file"))
         self.labelTrack.setText(_translate("MainWindow", "<font color=\'green\'>(x, y)</font>"))
+        self.buttonCal.setText(_translate("MainWindow", "Calibrate"))
+        self.labelPos.setText(_translate("MainWindow", "(x, y) m"))
 
