@@ -151,9 +151,9 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
 
             # log raw data
             if self.isVideoFileLoaded:
-                logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%m%S") + "_video_raw.csv"
+                logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + "_video_raw.csv"
             else:
-                logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%m%S") + "_raw.csv"
+                logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + "_raw.csv"
             with open(logName, 'w+') as f:
                 for time, item in zip(self.timestamps, self.trackPoints):
                     f.write(str(time) + ',' + str(int(item[0])) + ',' + str(int(item[1])) + '\n')
@@ -161,9 +161,9 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
             # log movement data
             if len(self.movePoints) > 0:
                 if self.isVideoFileLoaded:
-                    logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%m%S") + "_video_move.csv"
+                    logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + "_video_move.csv"
                 else:
-                    logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%m%S") + "_move.csv"
+                    logName = "./data/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + "_move.csv"
                 with open(logName, 'w+') as f:
                     for time, item in zip(self.timestamps, self.movePoints):
                         f.write(str(time) + ',' + str(item[0]) + ',' + str(item[1]) + '\n')
