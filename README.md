@@ -1,5 +1,5 @@
 # pyqt5_opencv
-Object tracking using pyqt5 and opencv3
+Cross-platform object tracking tool using pyqt5 and opencv3
 
 Dependencies:
 - Python3
