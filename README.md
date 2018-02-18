@@ -18,3 +18,5 @@ Usage:
 Data:
 - In the right-top corner, the real-time pixel coordinate of your tracking point and its measured displacement appear in the first line and the second line respectively
 - When the tracking finished, tracking data named after *(current time).csv* will be saved in the ./data folder
+
+<img src="https://github.com/HighTemplar-wjiang/pyqt5_opencv/blob/master/demo.png">
