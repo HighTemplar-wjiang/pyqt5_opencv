@@ -65,6 +65,9 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
         self.buttonPause.clicked.connect(self.pause_video)
         self.buttonCal.clicked.connect(self.calibrate)
 
+        # Video saver.
+        self.videoSaver = None
+
     def closeEvent(self, QCloseEvent):
         self._log_tracking()
         super(Qtcv, self).closeEvent(QCloseEvent)
@@ -170,6 +173,7 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
 
         except Exception as e:
             print(str(e))
+            # raise e
 
     def _tracking(self, frame):
         vis = frame.copy()
@@ -225,6 +229,7 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
                 print("Exception while drawing")
                 print(e)
                 print(track_box)
+                # raise e
 
         return vis
 
@@ -249,7 +254,11 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
                 # tracking
                 frame = self._tracking(frame)
 
+                # Draw.
                 self._draw_frame(frame)
+
+                # Export video.
+                self.videoSaver.write(frame)
 
                 # # convert to pixel
                 # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -259,10 +268,16 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
                 # self.videoWidget.setPixmap(pix)
 
         except Exception as e:
+            # Pause video.
             self.pause_video()
             print("Error: Exception while reading next frame")
             print(str(e))
+            # Writing log.
             self._log_tracking()
+            # Saving output video.
+            if self.videoSaver:
+                self.videoSaver.release()
+                self.videoSaver = None
 
     def set_camera(self):
         try:
@@ -306,6 +321,10 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
 
             # get the first frame
             self._next_frame()
+
+            # Define the codec and create VideoWriter object
+            fourcc = cv2.VideoWriter_fourcc(*'DIVX')
+            self.videoSaver = cv2.VideoWriter('./output.avi', fourcc, self.fps, self.frameSize)
 
         except Exception as e:
             self.capture = None
