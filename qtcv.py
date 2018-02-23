@@ -54,7 +54,7 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
         self.unitPerPixel = 0
 
         # streaming parameters
-        self.fps = 30
+        self.fps = int(30)
         self.frameSize = (self.videoWidget.geometry().width(), self.videoWidget.geometry().height())
         self.frameRatio = 1
 
@@ -245,6 +245,8 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
         try:
             if self.capture is not None:
                 _ret, frame = self.capture.read()
+                if frame is None:
+                    print("ERROR: Read next frame failed with returned value {}.".format(_ret))
 
                 # resize
                 if self.isVideoFileLoaded:
@@ -258,7 +260,8 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
                 self._draw_frame(frame)
 
                 # Export video.
-                self.videoSaver.write(frame)
+                if self.videoSaver:
+                    self.videoSaver.write(frame)
 
                 # # convert to pixel
                 # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -268,9 +271,10 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
                 # self.videoWidget.setPixmap(pix)
 
         except Exception as e:
+            # TODO: Distinguish Exception types.
             # Pause video.
             self.pause_video()
-            print("Error: Exception while reading next frame")
+            print("Error: Exception while reading next frame.")
             print(str(e))
             # Writing log.
             self._log_tracking()
@@ -290,13 +294,18 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
             width = self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
             height = self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
             self.fps = self.capture.get(cv2.CAP_PROP_FPS)
+            if self.fps == 0 or self.fps == -1:
+                # 20180223: OpenCV cannot read webcam's frame rate.
+                self.fps = int(25)
+                print("Warning: OpenCV failed to get your camera's frame rate, set to {}.".format(self.fps))
 
             # start
             self.start_video()
-        except:
+        except Exception as e:
             self.pause_video()
             self.capture = None
-            print("Error: Cannot open your camera")
+            print("Error: Cannot open your camera.")
+            print(str(e))
         finally:
             self.timestamps = []
             self.trackPoints = []
@@ -323,8 +332,8 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
             self._next_frame()
 
             # Define the codec and create VideoWriter object
-            fourcc = cv2.VideoWriter_fourcc(*'DIVX')
-            self.videoSaver = cv2.VideoWriter('./output.avi', fourcc, self.fps, self.frameSize)
+            fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+            self.videoSaver = cv2.VideoWriter("./output.mp4", fourcc, self.fps, self.frameSize)
 
         except Exception as e:
             self.capture = None
@@ -339,21 +348,23 @@ class Qtcv(QMainWindow, qtcvui.Ui_MainWindow):
     def start_video(self):
         self.timer = QTimer()
         self.timer.timeout.connect(self._next_frame)
-        self.timer.start(1000.0 / self.fps)
+        self.timer.start(1000 // self.fps)
 
     def pause_video(self):
         try:
             self.timer.stop()
+            print("INFO: Streaming paused.")
         except Exception as e:
             print("Error: Exception while pausing")
             print(str(e))
 
     @staticmethod
     def run():
+        # QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)  # Enable scaling.
         app = QApplication(sys.argv)  # A new instance of QApplication
         form = Qtcv()  # We set the form to be our ExampleApp (design)
         form.show()  # Show the form
-        app.exec_()  # and execute the app
+        app.exec_()  # And execute the app
 
 
 if __name__ == '__main__':
